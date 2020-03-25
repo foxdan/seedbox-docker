@@ -1,0 +1,68 @@
+version: "3"
+services:
+  transmission:
+    image: linuxserver/transmission
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TRANSMISSION_WEB_HOME: /transmission-web-control/
+    networks:
+      - web
+    ports:
+      - 9091
+      # This is your exposed port for transmission, will need to be opened by
+      # your firewall.
+      #- 51234:51234
+    labels:
+      - "traefik.http.routers.transmission.tls=true"
+      - "traefik.http.routers.transmission.middlewares=bauth"
+      - "traefik.http.routers.transmission.tls.certresolver=le"
+      - "traefik.http.services.transmission.loadbalancer.server.port=9091"
+  webdav:
+    build: ./webdav-docker
+    volumes:
+      - ./downloads/complete:/webdav:ro
+    networks:
+      - web
+    ports:
+      - 80
+    labels:
+      - "traefik.http.routers.webdav.tls=true"
+      - "traefik.http.routers.webdav.middlewares=bauth"
+      - "traefik.http.routers.webdav.tls.certresolver=le"
+  webdavsab:
+    build: ./webdav-docker
+    volumes:
+      - ./usenet/Downloads/complete:/webdav:ro
+    networks:
+      - web
+    ports:
+      - 80
+    labels:
+      - "traefik.http.routers.webdavsab.tls=true"
+      - "traefik.http.routers.webdavsab.middlewares=bauth"
+      - "traefik.http.routers.webdavsab.tls.certresolver=le"
+  sabnzbd:
+    image: "sabnzbd/sabnzbd"
+    environment:
+      SABNZBD_UID: 1000
+      SABNZBD_GID: 1000
+      # Set domain accordingly
+      HOST_WHITELIST_ENTRIES: sabnzbd-torrent.mydomain.tld
+    volumes:
+      - "./usenet:/datadir"
+    labels:
+      - "traefik.http.routers.sabnzbd.tls=true"
+      - "traefik.http.routers.sabnzbd.middlewares=bauth"
+      - "traefik.http.routers.sabnzbd.tls.certresolver=le"
+    networks:
+      - web
+    ports:
+      - 8080
+    restart: always
+networks:
+  web:
+    external: true
